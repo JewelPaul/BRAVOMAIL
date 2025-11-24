@@ -371,8 +371,9 @@ TechCorp Support Team`;
         throw new Error('No email domains available from the service');
       }
 
-      // Generate random username (8 characters)
-      const username = Math.random().toString(36).substring(2, 10);
+      // Generate random username (at least 8 characters)
+      const randomStr = Math.random().toString(36).substring(2);
+      const username = (randomStr + Math.random().toString(36).substring(2)).substring(0, 10);
       const domain = domains[0].domain;
       const address = `${username}@${domain}`;
 
@@ -408,7 +409,11 @@ TechCorp Support Team`;
 
     try {
       // Extract username and domain from email address
-      const [username, domain] = this.currentAccount.address.split('@');
+      const parts = this.currentAccount.address.split('@');
+      if (parts.length !== 2) {
+        throw new Error('Invalid email address format');
+      }
+      const [username, domain] = parts;
       
       const response = await fetch(this.getApiUrl({
         action: 'getMessages',
@@ -436,7 +441,7 @@ TechCorp Support Team`;
           address: msg.from || ''
         },
         subject: msg.subject || '(No Subject)',
-        intro: msg.subject || '(No Subject)', // 1secmail doesn't provide intro in list
+        intro: '(Preview not available)', // 1secmail doesn't provide intro in list
         seen: false, // 1secmail doesn't track read status
         createdAt: new Date(msg.date * 1000).toISOString(), // Convert Unix timestamp
         size: 0 // Size not provided in list view
@@ -460,7 +465,11 @@ TechCorp Support Team`;
 
     try {
       // Extract username and domain from email address
-      const [username, domain] = this.currentAccount.address.split('@');
+      const parts = this.currentAccount.address.split('@');
+      if (parts.length !== 2) {
+        throw new Error('Invalid email address format');
+      }
+      const [username, domain] = parts;
       
       const response = await fetch(this.getApiUrl({
         action: 'readMessage',
