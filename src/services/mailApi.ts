@@ -1,7 +1,7 @@
 const API_BASE = 'https://api.mail.gw';
 // Set to true for development/demo when real API is not accessible
 // Set to false for production with real email service
-const USE_MOCK = false; 
+const USE_MOCK = true; 
 
 // CORS proxy for development/testing when direct API access is blocked
 const CORS_PROXY = 'https://cors-anywhere.herokuapp.com/';
