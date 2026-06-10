@@ -4,8 +4,15 @@ const API_BASE = 'https://api.mail.tm';
 const USE_MOCK = false; 
 
 // CORS proxy for development/testing when direct API access is blocked
-const CORS_PROXY = 'https://cors-anywhere.herokuapp.com/';
+const CORS_PROXY = 'https://corsproxy.io/?';
 const USE_CORS_PROXY = false; // Enable if needed for CORS issues
+
+// Compatibility helper for AbortSignal.timeout (unsupported in some mobile/older browsers)
+const getTimeoutSignal = (ms: number): AbortSignal => {
+  const controller = new AbortController();
+  setTimeout(() => controller.abort(), ms);
+  return controller.signal;
+};
 
 export interface Domain {
   id: string;
@@ -107,7 +114,7 @@ class MailApi {
     try {
       const response = await fetch(`${API_BASE}/domains`, { 
         method: 'HEAD',
-        signal: AbortSignal.timeout(3000)
+        signal: getTimeoutSignal(3000)
       });
       return response.ok;
     } catch {
@@ -137,7 +144,7 @@ class MailApi {
     try {
       const response = await fetch(this.getApiUrl('/domains'), { 
         method: 'HEAD',
-        signal: AbortSignal.timeout(5000)
+        signal: getTimeoutSignal(5000)
       });
       if (response.ok) {
         console.log('✓ CORS proxy working');
@@ -167,7 +174,7 @@ class MailApi {
     try {
       const response = await fetch(this.getApiUrl('/domains'), { 
         method: 'HEAD',
-        signal: AbortSignal.timeout(8000) // 8 second timeout
+        signal: getTimeoutSignal(8000) // 8 second timeout
       });
       return response.ok;
     } catch {
@@ -309,7 +316,7 @@ TechCorp Support Team`;
     try {
       return await this.retryApiCall(async () => {
         const response = await fetch(this.getApiUrl('/domains'), {
-          signal: AbortSignal.timeout(10000) // 10 second timeout
+          signal: getTimeoutSignal(10000) // 10 second timeout
         });
         if (!response.ok) {
           throw new Error(`API request failed: ${response.status} ${response.statusText}`);
@@ -362,7 +369,7 @@ TechCorp Support Team`;
             address,
             password,
           }),
-          signal: AbortSignal.timeout(15000) // 15 second timeout
+          signal: getTimeoutSignal(15000) // 15 second timeout
         });
 
         if (!response.ok) {
@@ -383,7 +390,7 @@ TechCorp Support Team`;
             address,
             password,
           }),
-          signal: AbortSignal.timeout(10000) // 10 second timeout
+          signal: getTimeoutSignal(10000) // 10 second timeout
         });
 
         if (!tokenResponse.ok) {
@@ -425,7 +432,7 @@ TechCorp Support Team`;
         headers: {
           'Authorization': `Bearer ${this.authToken}`,
         },
-        signal: AbortSignal.timeout(10000) // 10 second timeout
+        signal: getTimeoutSignal(10000) // 10 second timeout
       });
 
       if (!response.ok) {
@@ -456,7 +463,7 @@ TechCorp Support Team`;
         headers: {
           'Authorization': `Bearer ${this.authToken}`,
         },
-        signal: AbortSignal.timeout(10000) // 10 second timeout
+        signal: getTimeoutSignal(10000) // 10 second timeout
       });
 
       if (!response.ok) {
@@ -487,7 +494,7 @@ TechCorp Support Team`;
         headers: {
           'Authorization': `Bearer ${this.authToken}`,
         },
-        signal: AbortSignal.timeout(8000) // 8 second timeout
+        signal: getTimeoutSignal(8000) // 8 second timeout
       });
       
       this.currentAccount = null;
