@@ -1,4 +1,4 @@
-const API_BASE = 'https://api.mail.gw';
+const API_BASE = 'https://api.mail.tm';
 // Set to true for development/demo when real API is not accessible
 // Set to false for production with real email service
 const USE_MOCK = false; 
