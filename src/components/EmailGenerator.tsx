@@ -35,15 +35,24 @@ const EmailGenerator = ({ onEmailChange }: EmailGeneratorProps) => {
         const healthy = await mailApi.checkApiHealth();
         setApiHealthy(healthy);
         
-        if (healthy || mailApi.getApiMode() === 'mock') {
-          // Generate initial email if API is healthy or in mock mode
-          await generateNewEmail();
-        } else {
-          setError("Email service is currently unavailable. Please try again later.");
+        // Always attempt to generate initial email, regardless of API health
+        // This ensures users get an immediate email address on page load
+        try {
+          await generateNewEmail(true); // Allow during initialization
+        } catch (emailError) {
+          console.warn('Initial email generation failed:', emailError);
+          // If initial generation fails, show a professional message
+          setError("Click the New Email button above to generate your address.");
         }
       } catch (err) {
         console.error('Failed to initialize app:', err);
-        setError("Failed to connect to email service. Please check your connection and try again.");
+        // Even if initialization fails, try to generate an email
+        try {
+          await generateNewEmail(true); // Allow during initialization
+        } catch (emailError) {
+          console.warn('Fallback email generation failed:', emailError);
+          setError("Click the New Email button above to generate your address.");
+        }
       } finally {
         setIsInitializing(false);
       }
@@ -89,8 +98,8 @@ const EmailGenerator = ({ onEmailChange }: EmailGeneratorProps) => {
     }
   };
 
-  const generateNewEmail = async () => {
-    if (isInitializing) return; // Don't allow generation during initialization
+  const generateNewEmail = async (allowDuringInit = false) => {
+    if (isInitializing && !allowDuringInit) return; // Don't allow generation during initialization unless explicitly allowed
     
     setIsGenerating(true);
     setError("");
@@ -109,20 +118,29 @@ const EmailGenerator = ({ onEmailChange }: EmailGeneratorProps) => {
       // Update API health status
       setApiHealthy(true);
       
-      toast({
-        title: "New email generated!",
-        description: "Your temporary email is ready to use.",
-      });
+      // Only show toast notification if not during initialization
+      if (!isInitializing) {
+        toast({
+          title: "New email generated!",
+          description: "Your temporary email is ready to use.",
+        });
+      }
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : "Failed to generate email";
       setError(errorMessage);
       setApiHealthy(false);
       
-      toast({
-        title: "Error",
-        description: errorMessage,
-        variant: "destructive",
-      });
+      // Only show toast notification if not during initialization
+      if (!isInitializing) {
+        toast({
+          title: "Error",
+          description: errorMessage,
+          variant: "destructive",
+        });
+      }
+      
+      // Re-throw error so it can be caught by initialization code
+      throw err;
     } finally {
       setIsGenerating(false);
     }
