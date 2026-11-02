@@ -1,196 +1,174 @@
-# 🛡️ BravoMail - Premium Secure Temporary Email Service
+# 🛡️ BravoMail — Production Temporary Email Service
 
-[![License: Proprietary](https://img.shields.io/badge/License-Proprietary-red.svg)](./LICENSE)
-[![Security: Enterprise Grade](https://img.shields.io/badge/Security-Enterprise%20Grade-green.svg)](#security-features)
-[![Privacy: Protected](https://img.shields.io/badge/Privacy-Protected-blue.svg)](#privacy-protection)
+BravoMail is a fast, privacy-focused temporary email web application built with React, TypeScript, Tailwind CSS, Vite, and an isolated backend architecture interfacing with genuine disposable email infrastructure.
 
----
-
-## 🌟 **[🚀 USE BRAVOMAIL LIVE WEBSITE →](https://bravomail.email)**
-
-**⚠️ IMPORTANT: This repository is for display purposes only. All functionality is exclusively available through our official website.**
+Live GitHub Pages site: **[https://jewelpaul.github.io/BRAVOMAIL/](https://jewelpaul.github.io/BRAVOMAIL/)**
 
 ---
 
-## 💎 **About BravoMail**
+## 📋 What BravoMail Does
 
-**BravoMail** is the world's most advanced, privacy-focused temporary email service that provides instant disposable email addresses to protect your real email from spam, unwanted communications, and privacy breaches. Built with enterprise-grade security and cutting-edge technology.
+BravoMail allows users to generate disposable temporary email addresses on demand to keep personal inboxes clean from spam, trackers, and marketing emails.
 
-### 🎯 **Why Choose BravoMail?**
-
-- **🔒 Military-Grade Security**: Advanced encryption and security protocols
-- **⚡ Instant Access**: Get temporary emails in seconds
-- **🛡️ Complete Privacy**: No registration, no personal data collection
-- **🌍 Global Reach**: Worldwide accessibility with high-speed servers
-- **📱 Multi-Platform**: Works seamlessly across all devices
-- **🚫 Zero Spam**: Automatically filters and blocks malicious content
-
----
-
-## ✨ **Key Features**
-
-### 🔐 **Security Features**
-- **End-to-End Encryption**: All emails are encrypted in transit and at rest
-- **Auto-Destruction**: Emails automatically delete after specified time
-- **IP Protection**: Advanced anonymization techniques
-- **Malware Detection**: Real-time scanning for malicious content
-- **Secure Headers**: Enhanced email security protocols
-
-### 🚀 **Performance Features**
-- **Instant Generation**: Create email addresses in under 1 second
-- **Real-Time Inbox**: Live email updates without refresh
-- **High Availability**: 99.9% uptime guaranteed
-- **Fast Delivery**: Global CDN for optimal performance
-- **Mobile Optimized**: Perfect experience on all devices
-
-### 🎨 **User Experience**
-- **Intuitive Interface**: Clean, modern, user-friendly design
-- **No Registration**: Start using immediately without signup
-- **Custom Domains**: Multiple domain options available
-- **Email Forwarding**: Optional forwarding to real email
-- **Bulk Operations**: Manage multiple temporary emails
-
-### 🛡️ **Privacy Protection**
-- **No Logging**: We don't track or store user activities
-- **Anonymous Usage**: No personal information required
-- **Data Minimization**: Collect only what's absolutely necessary
-- **Automatic Cleanup**: Regular purging of all data
+- **Instant Address Generation**: Generates genuine temporary email inboxes through genuine disposable email infrastructure.
+- **Real Inbound Email Receiving**: Receives actual inbound emails from external senders worldwide.
+- **Real-Time Live Inbox**: Polls automatically for new messages with active tab detection, unread status indicators, and manual refresh controls.
+- **Smart Contextual OTP Detection**: Analyzes real email contents to extract 4-digit, 6-digit, 8-digit numeric codes, alphanumeric verification codes, and prefixed verification codes (e.g. `G-123456`, `123-456`), with 1-click copy functionality.
+- **Robust Email Sanitization**: Strict HTML sanitization via DOMPurify that neutralizes `<script>`, `<iframe>`, `onload`/`onerror` handlers, dangerous protocols (`javascript:`), and isolates untrusted styles, with a plain-text email view toggle.
+- **Temporary Lifecycle & Explicit Deletion**: Enforces account expiration timestamps and allows users to immediately destroy/delete their temporary mailbox and associated messages on demand.
+- **Zero Mock / Zero Fake Data**: Every account, message, timestamp, and verification code comes from real email interactions.
 
 ---
 
-## 🌐 **Live Website Access**
+## 🏗️ Architecture
 
-### **🚀 [Access BravoMail Official Website](https://bravomail.email)**
+BravoMail follows a decoupled architecture designed for secure static hosting:
 
-**All BravoMail functionality is exclusively available through our official website. The website provides:**
+```
+┌──────────────────────────────────────┐       ┌──────────────────────────────────────┐       ┌──────────────────────────────────────┐
+│           FRONTEND (SPA)             │       │           BACKEND SERVICE            │       │         UPSTREAM EMAIL ENGINE        │
+│                                      │       │                                      │       │                                      │
+│  Hosted on GitHub Pages              │ HTTP  │  Node.js / Express or Serverless     │ HTTPS │  Mail.tm API & MX Servers            │
+│  https://jewelpaul.github.io/BRAVOMAIL/├──────>  (Render, Railway, Fly.io, Vercel)  ├──────>  Inbound MX: in.mail.tm:25            │
+│  Configured via VITE_API_BASE_URL    │       │  - Rate Limiter                      │       │  Active domains: fldubai.com         │
+│  - Sanitized DOMPurify rendering     │       │  - AES-256-GCM Session Tokens        │       │                                      │
+│  - In-browser OTP detection engine   │       │  - Request validation                │       │                                      │
+└──────────────────────────────────────┘       └──────────────────────────────────────┘       └──────────────────────────────────────┘
+```
 
-- ✅ **Full Service Access**: Complete temporary email functionality
-- ✅ **Real-Time Support**: Live customer assistance
-- ✅ **Latest Features**: Always up-to-date with newest capabilities
-- ✅ **Secure Environment**: Protected and monitored infrastructure
-- ✅ **Optimal Performance**: Optimized for speed and reliability
-
-### **📞 Support & Contact**
-- **🌐 Official Website**: [https://bravomail.email](https://bravomail.email)
-
----
-
-## ⚠️ **Important Legal Notice**
-
-### **🔒 Code Access Restrictions**
-
-**This repository and its contents are strictly protected under proprietary license. By accessing this repository, you agree to the following restrictions:**
-
-#### **❌ Prohibited Activities:**
-- **No Code Downloading**: Downloading, cloning, or copying any code is strictly prohibited
-- **No Distribution**: Sharing, redistributing, or republishing any part of this codebase
-- **No Commercial Use**: Using any part of this code for commercial purposes without explicit written permission
-- **No API Access**: Accessing our APIs outside the official website is strictly forbidden
-- **No Reverse Engineering**: Attempting to reverse engineer, decompile, or extract code logic
-- **No Unauthorized Use**: Any use not explicitly permitted is strictly prohibited
-
-#### **✅ Permitted Activities:**
-- **Viewing Only**: Repository may be viewed for reference purposes only
-- **Official Website Use**: Full functionality available through [bravomail.email](https://bravomail.email)
-
-### **⚖️ Legal Enforcement**
-
-**Violation of these terms may result in:**
-- Immediate legal action
-- Criminal prosecution under applicable laws
-- Damages and legal fees recovery
-- Permanent ban from all our services
+### Why a Dedicated Backend?
+1. **No Insecure Public CORS Proxies**: Previously, temporary email clients attempted to send private authentication tokens through untrusted third-party proxies (e.g. `corsproxy.io`), which frequently fail with HTTP 403, leak authentication tokens, and violate user security.
+2. **Credential & Provider Isolation**: The browser client receives an encrypted, tamper-proof session token (`AES-256-GCM`). Raw mailbox passwords and provider tokens never leak to the client.
+3. **Abuse & Rate Limit Protection**: The backend enforces sliding-window rate limits to shield upstream mail providers from abuse.
 
 ---
 
-## 🏢 **Enterprise & Business Solutions**
+## ⚙️ Environment Variables
 
-BravoMail offers enterprise-grade solutions for businesses requiring secure temporary email services:
+Copy `.env.example` to `.env`:
 
-- **🏛️ Enterprise Licensing**: Custom licensing for business use
-- **🔧 API Access**: Authorized API access for enterprise clients
-- **🛡️ White-Label Solutions**: Branded temporary email services
-- **📊 Analytics & Reporting**: Advanced usage analytics
-- **👥 Team Management**: Multi-user business accounts
-- **🔐 Enhanced Security**: Additional security layers for business
+```bash
+cp .env.example .env
+```
 
----
+| Variable | Target | Purpose | Example |
+| :--- | :--- | :--- | :--- |
+| `VITE_API_BASE_URL` | Frontend (Public) | URL of the deployed BravoMail backend server | `http://localhost:3001` or `https://bravomail-api.onrender.com` |
+| `PORT` | Backend (Private) | Local port for Express server | `3001` |
+| `SESSION_SECRET` | Backend (Private) | 32+ character key for AES-256-GCM session tokens | `openssl rand -hex 32` |
+| `SESSION_EXPIRY_MINUTES` | Backend (Private) | Lifetime of generated temporary mailboxes | `60` |
+| `CORS_ORIGIN` | Backend (Private) | Allowed frontend origin(s) | `https://jewelpaul.github.io` |
 
-## 📱 **How to Use BravoMail**
-
-### **Simple 3-Step Process:**
-
-1. **🌐 Visit**: Go to [bravomail.email](https://bravomail.email)
-2. **📧 Generate**: Click to create instant temporary email
-3. **✅ Use**: Use the email for signups, verification, or testing
-
-**No registration, no personal information, no hassle!**
+> [!IMPORTANT]
+> `VITE_` variables are public and bundled into the browser JavaScript. Never store private API keys or server secrets in `VITE_` variables.
 
 ---
 
-## 🔒 **Security & Trust**
+## 💻 Local Development
 
-- **🛡️ SOC 2 Compliant**: Industry-standard security compliance
-- **🔐 ISO 27001 Certified**: Information security management
-- **🔍 Regular Audits**: Third-party security assessments
-- **⚡ Real-Time Monitoring**: 24/7 security monitoring
-- **🚨 Incident Response**: Rapid security incident response team
+### 1. Prerequisites
+- Node.js 20+
+- npm 10+
 
----
+### 2. Install Dependencies
+```bash
+npm install
+```
 
-## 📊 **Our Growth Goals**
+### 3. Start the Backend Server
+```bash
+npm run server:dev
+# Running at http://localhost:3001
+# Health check available at http://localhost:3001/health
+```
 
-- **⚡ 99.9%** Uptime Target
-- **🚀 <1 Second** Email Generation Goal
-- **🌍 15+** Global Server Locations
-- **🛡️ 100%** Malware Detection Target
-- **👥 10K** User Goal This Year
-- **🎯 0** Personal Data Stored
-
----
-
-## 🏆 **Awards & Recognition**
-
-- **🥇 Best Privacy Tool 2024** - Privacy Awards
-- **🛡️ Most Secure Email Service** - CyberSecurity Magazine
-- **⚡ Fastest Temporary Email** - TechReview Awards
-- **🌟 Top Rated Service** - UserChoice Awards
+### 4. Start the Frontend Dev Server
+In a separate terminal:
+```bash
+npm run dev
+# Frontend runs at http://localhost:8080
+```
 
 ---
 
-## ❓ **Frequently Asked Questions**
+## 🧪 Testing
 
-### **Q: Is BravoMail really free?**
-A: Yes! Basic temporary email service is completely free on our website.
+BravoMail includes a comprehensive automated test suite covering:
+- Account generation and expiration
+- Backend configuration failure states
+- Upstream provider error handling
+- OTP detection accuracy and false positive rejection
+- HTML email sanitization and XSS mitigation
+- Production asset paths and GitHub Pages SPA fallback
 
-### **Q: How long do emails last?**
-A: You can choose from 10 minutes to 24 hours, or custom duration.
+Run all client and backend tests:
+```bash
+npm test
+```
 
-### **Q: Is my data safe?**
-A: Absolutely! We use military-grade encryption and don't store personal data.
+Run linter:
+```bash
+npm run lint
+```
 
-### **Q: Can I use it for business?**
-A: Yes! We offer enterprise solutions. Contact business@bravomail.com
-
-### **Q: Do you support mobile devices?**
-A: Yes! Our website works perfectly on all devices and platforms.
-
----
-
-## 🚀 **Start Using BravoMail Today!**
-
-### **[🌟 Get Your Temporary Email Now →](https://bravomail.email)**
-
-**Join our growing community of users who trust BravoMail for their privacy and security needs. Our goal: 10,000 users this year!**
-
----
-
-## 📜 **License**
-
-This project is protected under a proprietary license. See the [LICENSE](./LICENSE) file for details.
-
-**© 2025 BravoMail. All Rights Reserved.**
+Build production client:
+```bash
+npm run build
+```
 
 ---
 
-**⚠️ Remember: Only use BravoMail through our official website [bravomail.com](https://bravomail.email) for security and full functionality.**
+## 🚀 Deployment Guide
+
+### Deploying the Frontend (GitHub Pages)
+
+The frontend is deployed to GitHub Pages at `https://jewelpaul.github.io/BRAVOMAIL/`.
+
+1. Go to your GitHub repository: **Settings → Pages**.
+2. Under **Build and deployment**, set **Source** to **GitHub Actions**.
+3. Under **Settings → Secrets and variables → Actions → Variables**, add a repository variable:
+   - **Name**: `VITE_API_BASE_URL`
+   - **Value**: Your deployed backend URL (e.g. `https://your-bravomail-api.onrender.com`)
+4. Pushing to the `main` branch automatically runs `.github/workflows/deploy-pages.yml`, runs all tests, builds the assets to `./dist` with base `/BRAVOMAIL/`, and deploys them to GitHub Pages.
+
+### Deploying the Backend
+
+The backend can be deployed for free on any Node.js hosting platform:
+
+#### Option A: Render (Recommended, 1-Click)
+1. Fork or push this repository to GitHub.
+2. In [Render Dashboard](https://dashboard.render.com), click **New +** → **Blueprint** and select your repository (reads [`render.yaml`](./render.yaml)).
+3. Or create a **Web Service**:
+   - **Build Command**: `cd server && npm install`
+   - **Start Command**: `cd server && npm start`
+   - **Environment Variables**:
+     - `NODE_ENV`: `production`
+     - `PORT`: `10000`
+     - `SESSION_SECRET`: generate with `openssl rand -hex 32`
+     - `CORS_ORIGIN`: `https://jewelpaul.github.io`
+4. Copy your Render service URL (e.g. `https://bravomail-api.onrender.com`) into your GitHub Actions variable `VITE_API_BASE_URL`.
+
+#### Option B: Docker Container
+A production-ready [`Dockerfile`](./Dockerfile) is provided:
+```bash
+docker build -t bravomail-backend .
+docker run -p 3001:3001 -e SESSION_SECRET="your-secret" bravomail-backend
+```
+
+#### Option C: Vercel Serverless
+The repository includes an [`api/index.js`](./api/index.js) serverless handler. You can import the repository into Vercel and set `SESSION_SECRET` and `CORS_ORIGIN` in Project Settings.
+
+---
+
+## 🔒 Security & Privacy Limitations
+
+- **Disposable Nature**: Temporary email addresses use shared public domains provided by disposable mail networks. Anyone with temporary address credentials can view received messages until the session expires or is deleted.
+- **Do Not Use for Critical Accounts**: Never use temporary email services for banking, medical, legal, or permanent identity verification.
+- **Email Content Security**: All incoming HTML is stripped of executable code, event handlers, frames, and forms via DOMPurify before display.
+- **Expiration & Cleanup**: Mailboxes expire automatically after the configured duration (default: 60 minutes) or immediately upon user deletion.
+
+---
+
+## 📄 License
+
+This project is licensed under the terms of the [LICENSE](./LICENSE) file.

@@ -32,16 +32,16 @@ const PrivacyPolicy = () => {
             <section className="space-y-4">
               <h2 className="text-2xl font-semibold text-foreground">2. Our Privacy-First Approach</h2>
               <div className="bg-primary/10 border border-primary/20 rounded-lg p-6">
-                <h3 className="font-semibold text-primary mb-4 text-lg">Complete Privacy Protection:</h3>
+                <h3 className="font-semibold text-primary mb-4 text-lg">Disposable Email Architecture:</h3>
                 <p className="text-foreground font-semibold leading-relaxed mb-4">
-                  <strong>BravoMail does NOT collect, store, track, or analyze any user personal data, browser information, device identifiers, or cookies. We do not log, cache, or retain any information about user activity. All temporary email data is deleted immediately after expiry and is never associated with any user or device.</strong>
+                  BravoMail is designed to protect your primary email address from spam and unwanted marketing. We do not require registration, personal details, passwords, or persistent tracking profiles to use temporary mailboxes.
                 </p>
                 <div className="space-y-3 text-muted-foreground">
-                  <p>• We do not use cookies, trackers, or analytics of any kind.</p>
-                  <p>• We cannot and do not identify, track, or profile visitors or users in any manner.</p>
-                  <p>• No information is ever shared with any third party.</p>
-                  <p>• Temporary email addresses are generated randomly without any user association.</p>
-                  <p>• All email data is permanently destroyed after 10 minutes with no recovery possible.</p>
+                  <p>• We do not track or profile individual users.</p>
+                  <p>• Temporary email addresses are generated anonymously for short-term use.</p>
+                  <p>• Email messages are held temporarily by upstream disposable mail infrastructure and expire automatically.</p>
+                  <p>• Users can manually delete their temporary mailbox and messages at any time.</p>
+                  <p>• Please do not use temporary mailboxes for critical accounts, banking, or sensitive personal communications, as disposable domains are shared and temporary.</p>
                 </div>
               </div>
             </section>

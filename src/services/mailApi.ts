@@ -1,192 +1,263 @@
-const API_BASE = "https://api.mail.tm";
-const CORS_PROXY = "https://corsproxy.io/?url=";
-
-const getTimeoutSignal = (milliseconds: number): AbortSignal => {
-  const controller = new AbortController();
-  window.setTimeout(() => controller.abort(), milliseconds);
-  return controller.signal;
-};
-
-export interface Domain {
-  id: string;
-  domain: string;
-  isActive: boolean;
-}
+// BravoMail Client API Service
+// Connects to the secure, dedicated BravoMail backend.
+// Zero reliance on public CORS proxies.
 
 export interface EmailAccount {
   id: string;
   address: string;
-  password: string;
   token: string;
+  expiresAt: string;
 }
 
 export interface EmailMessage {
   id: string;
   from: { name: string; address: string };
+  to?: { name: string; address: string }[];
   subject: string;
   intro: string;
   seen: boolean;
   createdAt: string;
   size: number;
+  hasAttachments?: boolean;
 }
 
 export interface EmailContent extends EmailMessage {
-  html: string[];
+  html: string;
   text: string;
+}
+
+export class BackendNotConfiguredError extends Error {
+  constructor(message = 'Backend API URL is not configured. Please set VITE_API_BASE_URL to your backend URL.') {
+    super(message);
+    this.name = 'BackendNotConfiguredError';
+  }
 }
 
 class MailApi {
   private currentAccount: EmailAccount | null = null;
-  private authToken: string | null = null;
-  private useProxy = false;
+  private readonly storageKey = 'bravomail_session_account';
 
-  private async request<T>(
-    endpoint: string,
-    options: RequestInit = {},
-    timeout = 10000,
-  ): Promise<T> {
-    const apiUrl = `${API_BASE}${endpoint}`;
-    const headers = {
-      Accept: "application/json",
-      ...(options.body ? { "Content-Type": "application/json" } : {}),
-      ...(this.authToken ? { Authorization: ["Bearer", this.authToken].join(" ") } : {}),
-      ...options.headers,
-    };
+  constructor() {
+    this.restoreSession();
+  }
 
-    const fetchOptions: RequestInit = {
-      ...options,
-      headers,
-      signal: getTimeoutSignal(timeout),
-    };
+  /**
+   * Reads configured API base URL from Vite environment variable.
+   */
+  getApiBaseUrl(): string {
+    const raw = import.meta.env.VITE_API_BASE_URL;
+    if (!raw || typeof raw !== 'string') {
+      return '';
+    }
+    return raw.trim().replace(/\/+$/, '');
+  }
 
-    let response: Response;
+  /**
+   * Returns true if a non-empty backend URL is configured.
+   */
+  isConfigured(): boolean {
+    return Boolean(this.getApiBaseUrl());
+  }
+
+  /**
+   * Restores active account from sessionStorage if still unexpired.
+   */
+  private restoreSession(): void {
+    if (typeof window === 'undefined' || !window.sessionStorage) return;
+
     try {
-      response = await fetch(
-        this.useProxy ? `${CORS_PROXY}${encodeURIComponent(apiUrl)}` : apiUrl,
-        fetchOptions,
-      );
-    } catch (error) {
-      if (this.useProxy || !(error instanceof TypeError)) {
-        throw new Error("Unable to reach the email service. Check your connection and try again.");
+      const saved = window.sessionStorage.getItem(this.storageKey);
+      if (saved) {
+        const parsed = JSON.parse(saved) as EmailAccount;
+        if (parsed.expiresAt && new Date(parsed.expiresAt).getTime() > Date.now()) {
+          this.currentAccount = parsed;
+        } else {
+          this.clearSession();
+        }
       }
-
-      this.useProxy = true;
-      try {
-        response = await fetch(`${CORS_PROXY}${encodeURIComponent(apiUrl)}`, {
-          ...fetchOptions,
-          signal: getTimeoutSignal(timeout),
-        });
-      } catch {
-        throw new Error("Unable to reach the email service. Check your connection and try again.");
-      }
+    } catch {
+      this.clearSession();
     }
-
-    if (!response.ok) {
-      let detail = `${response.status} ${response.statusText}`;
-      try {
-        const body = await response.json() as { message?: string; detail?: string };
-        detail = body.detail || body.message || detail;
-      } catch {
-        // Keep the HTTP status when the service does not return JSON.
-      }
-      throw new Error(`Email service error: ${detail}`);
-    }
-
-    if (response.status === 204) {
-      return undefined as T;
-    }
-    return response.json() as Promise<T>;
   }
 
-  async initializeConnection(): Promise<void> {
-    await this.getDomains();
-  }
+  private saveSession(account: EmailAccount | null): void {
+    this.currentAccount = account;
+    if (typeof window === 'undefined' || !window.sessionStorage) return;
 
-  getApiMode(): "real" {
-    return "real";
-  }
-
-  async checkApiHealth(): Promise<boolean> {
     try {
-      await this.getDomains();
-      return true;
-    } catch (error) {
-      console.error("Email service health check failed:", error);
-      return false;
+      if (account) {
+        window.sessionStorage.setItem(this.storageKey, JSON.stringify(account));
+      } else {
+        window.sessionStorage.removeItem(this.storageKey);
+      }
+    } catch {
+      // Ignore sessionStorage errors (e.g. storage disabled)
     }
   }
 
-  async getDomains(): Promise<Domain[]> {
-    const data = await this.request<{ "hydra:member"?: Domain[] }>("/domains");
-    const domains = (data["hydra:member"] || []).filter((domain) => domain.isActive);
-    if (domains.length === 0) {
-      throw new Error("The email service returned no active domains.");
-    }
-    return domains;
-  }
-
-  async createAccount(): Promise<EmailAccount> {
-    const domains = await this.getDomains();
-    const domain = domains[Math.floor(Math.random() * domains.length)]?.domain;
-    if (!domain) {
-      throw new Error("No active email domains are available.");
-    }
-
-    const username = `user${crypto.randomUUID().replaceAll("-", "").slice(0, 12)}`;
-    const password = `${crypto.randomUUID()}${crypto.randomUUID()}`;
-    const address = `${username}@${domain}`;
-    const account = await this.request<{ id: string; address: string }>("/accounts", {
-      method: "POST",
-      body: JSON.stringify({ address, password }),
-    }, 15000);
-    const tokenData = await this.request<{ token: string }>("/token", {
-      method: "POST",
-      body: JSON.stringify({ address, password }),
-    });
-
-    this.authToken = tokenData.token;
-    this.currentAccount = {
-      id: account.id,
-      address: account.address,
-      password,
-      token: tokenData.token,
-    };
-    return this.currentAccount;
-  }
-
-  async getMessages(): Promise<EmailMessage[]> {
-    if (!this.authToken) {
-      throw new Error("Create a temporary email address before checking the inbox.");
-    }
-    const data = await this.request<{ "hydra:member"?: EmailMessage[] }>("/messages");
-    return data["hydra:member"] || [];
-  }
-
-  async getMessage(id: string): Promise<EmailContent> {
-    if (!this.authToken) {
-      throw new Error("Create a temporary email address before opening a message.");
-    }
-    return this.request<EmailContent>(`/messages/${encodeURIComponent(id)}`);
-  }
-
-  async deleteAccount(): Promise<void> {
-    if (!this.currentAccount || !this.authToken) return;
-    try {
-      await this.request<void>(`/accounts/${encodeURIComponent(this.currentAccount.id)}`, {
-        method: "DELETE",
-      }, 8000);
-    } finally {
-      this.currentAccount = null;
-      this.authToken = null;
+  clearSession(): void {
+    this.currentAccount = null;
+    if (typeof window !== 'undefined' && window.sessionStorage) {
+      window.sessionStorage.removeItem(this.storageKey);
     }
   }
 
   getCurrentAccount(): EmailAccount | null {
+    if (this.currentAccount?.expiresAt && new Date(this.currentAccount.expiresAt).getTime() <= Date.now()) {
+      this.clearSession();
+      return null;
+    }
     return this.currentAccount;
   }
 
-  getConnectionInfo(): { mode: "real"; corsProxy: boolean; initialized: boolean } {
-    return { mode: "real", corsProxy: this.useProxy, initialized: true };
+  private async request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
+    const baseUrl = this.getApiBaseUrl();
+    if (!baseUrl) {
+      throw new BackendNotConfiguredError();
+    }
+
+    const headers: Record<string, string> = {
+      Accept: 'application/json',
+      ...(options.body ? { 'Content-Type': 'application/json' } : {}),
+      ...(this.currentAccount?.token ? { Authorization: `Bearer ${this.currentAccount.token}` } : {}),
+      ...(options.headers as Record<string, string>),
+    };
+
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 12000);
+
+    try {
+      const response = await fetch(`${baseUrl}${endpoint}`, {
+        ...options,
+        headers,
+        signal: controller.signal,
+      });
+
+      if (response.status === 204) {
+        return undefined as T;
+      }
+
+      if (!response.ok) {
+        let errorDetail = `${response.status} ${response.statusText}`;
+        try {
+          const body = (await response.json()) as { error?: string; message?: string };
+          errorDetail = body.error || body.message || errorDetail;
+        } catch {
+          // Keep response status
+        }
+
+        if (response.status === 401) {
+          this.clearSession();
+          throw new Error('Temporary email session has expired. Please generate a new address.');
+        }
+
+        throw new Error(errorDetail);
+      }
+
+      return (await response.json()) as T;
+    } catch (err) {
+      if (err instanceof BackendNotConfiguredError) {
+        throw err;
+      }
+      if (err instanceof Error) {
+        if (err.name === 'AbortError') {
+          throw new Error('Request to email backend timed out. Please try again.');
+        }
+        if (err.message.includes('Failed to fetch') || err.message.includes('NetworkError')) {
+          throw new Error('Unable to reach BravoMail backend. Check your network or verify the backend service is running.');
+        }
+        throw err;
+      }
+      throw new Error('An unexpected error occurred while communicating with the email service.');
+    } finally {
+      clearTimeout(timeout);
+    }
+  }
+
+  /**
+   * Health check for the backend and provider
+   */
+  async checkApiHealth(): Promise<{ healthy: boolean; message: string }> {
+    if (!this.isConfigured()) {
+      return {
+        healthy: false,
+        message: 'Backend API URL is not configured. Set VITE_API_BASE_URL to connect to your BravoMail server.',
+      };
+    }
+
+    try {
+      const res = await this.request<{ status: string; providerHealthy: boolean }>('/health');
+      return {
+        healthy: res.status === 'ok' && Boolean(res.providerHealthy),
+        message: res.status === 'ok' ? 'Email service connected and ready.' : 'Email service reported degraded status.',
+      };
+    } catch (err) {
+      return {
+        healthy: false,
+        message: err instanceof Error ? err.message : 'Failed to reach email backend.',
+      };
+    }
+  }
+
+  /**
+   * Generates a genuine temporary email account through the backend
+   */
+  async createAccount(): Promise<EmailAccount> {
+    const account = await this.request<EmailAccount>('/api/accounts', {
+      method: 'POST',
+    });
+
+    this.saveSession(account);
+    return account;
+  }
+
+  /**
+   * Retrieves messages for the active session
+   */
+  async getMessages(): Promise<EmailMessage[]> {
+    const account = this.getCurrentAccount();
+    if (!account) {
+      throw new Error('No active email account. Generate a temporary email to view your inbox.');
+    }
+
+    const data = await this.request<{ messages: EmailMessage[] }>('/api/messages');
+    return data.messages || [];
+  }
+
+  /**
+   * Retrieves message content and details
+   */
+  async getMessage(id: string): Promise<EmailContent> {
+    const account = this.getCurrentAccount();
+    if (!account) {
+      throw new Error('No active email account. Generate a temporary email to view messages.');
+    }
+
+    return this.request<EmailContent>(`/api/messages/${encodeURIComponent(id)}`);
+  }
+
+  /**
+   * Deletes a single message
+   */
+  async deleteMessage(id: string): Promise<void> {
+    await this.request<void>(`/api/messages/${encodeURIComponent(id)}`, {
+      method: 'DELETE',
+    });
+  }
+
+  /**
+   * Deletes the active temporary account and invalidates session
+   */
+  async deleteAccount(): Promise<void> {
+    if (!this.currentAccount) return;
+
+    try {
+      await this.request<void>('/api/accounts', {
+        method: 'DELETE',
+      });
+    } finally {
+      this.clearSession();
+    }
   }
 }
 
