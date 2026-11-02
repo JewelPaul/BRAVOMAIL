@@ -210,7 +210,7 @@ const EmailGenerator = ({ onEmailChange }: EmailGeneratorProps) => {
                   value={
                     isInitializing 
                       ? "Initializing..." 
-                      : currentAccount?.address || "Generating..."
+                      : currentAccount?.address || (error ? "Unavailable" : "Ready to generate")
                   }
                   readOnly
                   className="text-sm sm:text-lg font-mono text-center bg-background/50 border-border/20 focus:border-primary transition-smooth h-12 sm:h-14"
