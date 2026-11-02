@@ -1,16 +1,8 @@
-const API_BASE = 'https://api.mail.tm';
-// Set to true for development/demo when real API is not accessible
-// Set to false for production with real email service
-const USE_MOCK = false; 
+const API_BASE = "https://api.mail.tm";
 
-// CORS proxy for development/testing when direct API access is blocked
-const CORS_PROXY = 'https://corsproxy.io/?';
-const USE_CORS_PROXY = false; // Enable if needed for CORS issues
-
-// Compatibility helper for AbortSignal.timeout (unsupported in some mobile/older browsers)
-const getTimeoutSignal = (ms: number): AbortSignal => {
+const getTimeoutSignal = (milliseconds: number): AbortSignal => {
   const controller = new AbortController();
-  setTimeout(() => controller.abort(), ms);
+  window.setTimeout(() => controller.abort(), milliseconds);
   return controller.signal;
 };
 
@@ -23,8 +15,8 @@ export interface Domain {
 export interface EmailAccount {
   id: string;
   address: string;
-  password?: string;
-  token?: string;
+  password: string;
+  token: string;
 }
 
 export interface EmailMessage {
@@ -45,469 +37,127 @@ export interface EmailContent extends EmailMessage {
   text: string;
 }
 
-// Mock data for demo purposes
-const MOCK_DOMAINS: Domain[] = [
-  { id: '1', domain: 'bravo-mail.com', isActive: true },
-  { id: '2', domain: 'temp-email.net', isActive: true }
-];
-
-const MOCK_MESSAGES: EmailMessage[] = [
-  {
-    id: 'mock_1',
-    from: {
-      name: 'Security Team',
-      address: 'noreply@secureapp.com'
-    },
-    subject: 'Your Verification Code',
-    intro: 'Your verification code is 123456. This code will expire in 10 minutes.',
-    seen: false,
-    createdAt: new Date().toISOString(),
-    size: 1024
-  },
-  {
-    id: 'mock_2', 
-    from: {
-      name: 'TechCorp',
-      address: 'support@techcorp.com'
-    },
-    subject: 'Login Verification Required',
-    intro: 'Your security code: ABC123. Please use this code to complete your login.',
-    seen: false,
-    createdAt: new Date(Date.now() - 300000).toISOString(), // 5 minutes ago
-    size: 856
-  }
-];
-
 class MailApi {
   private currentAccount: EmailAccount | null = null;
   private authToken: string | null = null;
-  private corsProxyNeeded: boolean = false;
-  private mockFallback = false;
 
-  private isMockMode(): boolean {
-    return USE_MOCK || this.mockFallback;
-  }
+  private async request<T>(
+    endpoint: string,
+    options: RequestInit = {},
+    timeout = 10000,
+  ): Promise<T> {
+    const response = await fetch(`${API_BASE}${endpoint}`, {
+      ...options,
+      headers: {
+        Accept: "application/json",
+        ...(options.body ? { "Content-Type": "application/json" } : {}),
+        ...(this.authToken ? { Authorization: `Bearer ${this.authToken}` } : {}),
+        ...options.headers,
+      },
+      signal: getTimeoutSignal(timeout),
+    });
 
-  private getApiUrl(endpoint: string): string {
-    const needsProxy = USE_CORS_PROXY || this.corsProxyNeeded;
-    const baseUrl = needsProxy ? `${CORS_PROXY}${API_BASE}` : API_BASE;
-    return `${baseUrl}${endpoint}`;
-  }
-
-  // Retry mechanism for API calls
-  private async retryApiCall<T>(operation: () => Promise<T>, maxRetries: number = 2): Promise<T> {
-    let lastError: Error | null = null;
-    
-    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    if (!response.ok) {
+      let detail = `${response.status} ${response.statusText}`;
       try {
-        return await operation();
-      } catch (error) {
-        lastError = error instanceof Error ? error : new Error('Unknown error');
-        
-        if (attempt < maxRetries) {
-          console.log(`API call failed (attempt ${attempt + 1}/${maxRetries + 1}), retrying...`);
-          await new Promise(resolve => setTimeout(resolve, 1000 * (attempt + 1))); // Progressive delay
-        }
+        const body = await response.json() as { message?: string; detail?: string };
+        detail = body.detail || body.message || detail;
+      } catch {
+        // Keep the HTTP status when the service does not return JSON.
       }
+      throw new Error(`Email service error: ${detail}`);
     }
-    
-    throw lastError;
+
+    if (response.status === 204) {
+      return undefined as T;
+    }
+
+    return response.json() as Promise<T>;
   }
 
-  // Auto-detect if CORS proxy is needed
-  private async testDirectConnection(): Promise<boolean> {
+  async initializeConnection(): Promise<void> {
+    await this.getDomains();
+  }
+
+  getApiMode(): "real" {
+    return "real";
+  }
+
+  async checkApiHealth(): Promise<boolean> {
     try {
-      const response = await fetch(`${API_BASE}/domains`, { 
-        method: 'HEAD',
-        signal: getTimeoutSignal(3000)
-      });
-      return response.ok;
-    } catch {
+      await this.getDomains();
+      return true;
+    } catch (error) {
+      console.error("Email service health check failed:", error);
       return false;
     }
   }
 
-  // Initialize connection and detect best API access method
-  async initializeConnection(): Promise<void> {
-    if (USE_MOCK) return;
-    
-    console.log('Testing API connection...');
-    
-    // First try direct connection
-    const directWorks = await this.testDirectConnection();
-    
-    if (directWorks) {
-      this.corsProxyNeeded = false;
-      console.log('✓ Direct API access working');
+  async getDomains(): Promise<Domain[]> {
+    const data = await this.request<{ "hydra:member"?: Domain[] }>("/domains");
+    const domains = data["hydra:member"] || [];
+    if (domains.length === 0) {
+      throw new Error("The email service returned no available domains.");
+    }
+    return domains.filter((domain) => domain.isActive);
+  }
+
+  async createAccount(): Promise<EmailAccount> {
+    const domains = await this.getDomains();
+    const domain = domains[Math.floor(Math.random() * domains.length)]?.domain;
+    if (!domain) {
+      throw new Error("No active email domains are available.");
+    }
+
+    const username = `user${crypto.randomUUID().replaceAll("-", "").slice(0, 12)}`;
+    const password = `${crypto.randomUUID()}${crypto.randomUUID()}`;
+    const address = `${username}@${domain}`;
+
+    const account = await this.request<{ id: string; address: string }>("/accounts", {
+      method: "POST",
+      body: JSON.stringify({ address, password }),
+    }, 15000);
+
+    const tokenData = await this.request<{ token: string }>("/token", {
+      method: "POST",
+      body: JSON.stringify({ address, password }),
+    });
+
+    this.authToken = tokenData.token;
+    this.currentAccount = {
+      id: account.id,
+      address: account.address,
+      password,
+      token: tokenData.token,
+    };
+    return this.currentAccount;
+  }
+
+  async getMessages(): Promise<EmailMessage[]> {
+    if (!this.authToken) {
+      throw new Error("Create a temporary email address before checking the inbox.");
+    }
+    const data = await this.request<{ "hydra:member"?: EmailMessage[] }>("/messages");
+    return data["hydra:member"] || [];
+  }
+
+  async getMessage(id: string): Promise<EmailContent> {
+    if (!this.authToken) {
+      throw new Error("Create a temporary email address before opening a message.");
+    }
+    return this.request<EmailContent>(`/messages/${encodeURIComponent(id)}`);
+  }
+
+  async deleteAccount(): Promise<void> {
+    if (!this.currentAccount || !this.authToken) {
       return;
     }
-    
-    console.log('⚠ Direct API access failed, trying CORS proxy...');
-    
-    // Try with CORS proxy
-    this.corsProxyNeeded = true;
-    try {
-      const response = await fetch(this.getApiUrl('/domains'), { 
-        method: 'HEAD',
-        signal: getTimeoutSignal(5000)
-      });
-      if (response.ok) {
-        console.log('✓ CORS proxy working');
-      } else {
-        console.log('⚠ CORS proxy available but API returned error');
-        this.mockFallback = true;
-      }
-    } catch {
-      console.log('⚠ CORS proxy also failed, using demo fallback');
-      this.mockFallback = true;
-    }
-  }
-
-  // Get current API mode for UI display
-  getApiMode(): 'mock' | 'real' {
-    return this.isMockMode() ? 'mock' : 'real';
-  }
-
-  // Check if real API is available
-  async checkApiHealth(): Promise<boolean> {
-    if (this.isMockMode()) return true;
-    
-    // Initialize connection method if not done yet
-    if (!USE_CORS_PROXY && !this.corsProxyNeeded) {
-      await this.initializeConnection();
-    }
-    
-    try {
-      const response = await fetch(this.getApiUrl('/domains'), { 
-        method: 'HEAD',
-        signal: getTimeoutSignal(8000) // 8 second timeout
-      });
-      return response.ok;
-    } catch {
-      return false;
-    }
-  }
-
-  // Mock API methods for demo purposes
-  private async mockDelay(ms: number = 800): Promise<void> {
-    return new Promise(resolve => setTimeout(resolve, ms));
-  }
-
-  private async mockGetDomains(): Promise<Domain[]> {
-    await this.mockDelay(500);
-    return MOCK_DOMAINS;
-  }
-
-  private async mockCreateAccount(): Promise<EmailAccount> {
-    await this.mockDelay(1000);
-    
-    const username = Math.random().toString(36).substring(2, 10);
-    const domain = MOCK_DOMAINS[0].domain;
-    const address = `${username}@${domain}`;
-    const password = Math.random().toString(36).substring(2, 15);
-    const token = 'mock_token_' + Math.random().toString(36).substring(2, 15);
-    
-    const account: EmailAccount = {
-      id: Math.random().toString(36).substring(2, 15),
-      address,
-      password,
-      token
-    };
-    
-    this.currentAccount = account;
-    this.authToken = token;
-    
-    return account;
-  }
-
-  private async mockGetMessages(): Promise<EmailMessage[]> {
-    await this.mockDelay(600);
-    // Return the mock messages for demo
-    return MOCK_MESSAGES;
-  }
-
-  private async mockGetMessage(id: string): Promise<EmailContent> {
-    await this.mockDelay(400);
-    const message = MOCK_MESSAGES.find(m => m.id === id);
-    if (!message) throw new Error('Message not found');
-    
-    // Create enhanced content with OTP codes
-    let htmlContent = '';
-    let textContent = '';
-    
-    if (id === 'mock_1') {
-      htmlContent = `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-          <h2 style="color: #2563eb;">Your Verification Code</h2>
-          <p>Hi there,</p>
-          <p>You've requested a verification code for your account. Please use the code below to complete your verification:</p>
-          <div style="background: #f3f4f6; padding: 20px; border-radius: 8px; margin: 20px 0; text-align: center;">
-            <p style="margin: 0; font-size: 16px; color: #6b7280;">Your verification code is:</p>
-            <div style="font-size: 32px; font-weight: bold; color: #1f2937; margin: 10px 0; letter-spacing: 4px;">123456</div>
-            <p style="margin: 0; font-size: 14px; color: #6b7280;">This code will expire in 10 minutes</p>
-          </div>
-          <p>If you didn't request this code, please ignore this email.</p>
-          <p>Best regards,<br>Security Team</p>
-        </div>
-      `;
-      textContent = `Your Verification Code
-
-Hi there,
-
-You've requested a verification code for your account. Please use the code below to complete your verification:
-
-Your verification code is: 123456
-
-This code will expire in 10 minutes.
-
-If you didn't request this code, please ignore this email.
-
-Best regards,
-Security Team`;
-    } else if (id === 'mock_2') {
-      htmlContent = `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-          <h2 style="color: #059669;">Login Verification Required</h2>
-          <p>Hello,</p>
-          <p>We detected a login attempt to your TechCorp account. For your security, please verify this login using the code below:</p>
-          <div style="background: #ecfdf5; border: 2px solid #10b981; padding: 20px; border-radius: 8px; margin: 20px 0; text-align: center;">
-            <p style="margin: 0; font-size: 16px; color: #065f46;">Security Code:</p>
-            <div style="font-size: 28px; font-weight: bold; color: #065f46; margin: 10px 0; letter-spacing: 2px;">ABC123</div>
-            <p style="margin: 0; font-size: 14px; color: #065f46;">Valid for 15 minutes</p>
-          </div>
-          <p>If this wasn't you, please contact our support team immediately.</p>
-          <p>Thank you,<br>TechCorp Support Team</p>
-        </div>
-      `;
-      textContent = `Login Verification Required
-
-Hello,
-
-We detected a login attempt to your TechCorp account. For your security, please verify this login using the code below:
-
-Security Code: ABC123
-
-Valid for 15 minutes.
-
-If this wasn't you, please contact our support team immediately.
-
-Thank you,
-TechCorp Support Team`;
-    }
-    
-    return {
-      ...message,
-      html: [htmlContent],
-      text: textContent
-    };
-  }
-
-  private async mockDeleteAccount(): Promise<void> {
-    await this.mockDelay(300);
-    this.currentAccount = null;
-    this.authToken = null;
-  }
-
-  // Get available domains
-  async getDomains(): Promise<Domain[]> {
-    if (this.isMockMode()) {
-      return this.mockGetDomains();
-    }
-
-    // Initialize connection method if not done yet
-    if (!USE_CORS_PROXY && !this.corsProxyNeeded) {
-      await this.initializeConnection();
-    }
 
     try {
-      return await this.retryApiCall(async () => {
-        const response = await fetch(this.getApiUrl('/domains'), {
-          signal: getTimeoutSignal(10000) // 10 second timeout
-        });
-        if (!response.ok) {
-          throw new Error(`API request failed: ${response.status} ${response.statusText}`);
-        }
-        
-        const data = await response.json();
-        return data['hydra:member'] || [];
-      });
-    } catch (error) {
-      console.error('Error fetching domains:', error);
-      
-      // Provide more specific error messages
-      if (error instanceof TypeError && error.message.includes('fetch')) {
-        throw new Error('Unable to connect to the email service. This may be due to network connectivity issues or CORS restrictions in your browser.');
-      } else if (error instanceof Error && error.name === 'AbortError') {
-        throw new Error('Connection to email service timed out. Please check your internet connection and try again.');
-      } else {
-        throw new Error(`Email service error: ${error instanceof Error ? error.message : 'Unknown network error'}`);
-      }
-    }
-  }
-
-  // Create a new email account
-  async createAccount(): Promise<EmailAccount> {
-    if (this.isMockMode()) {
-      return this.mockCreateAccount();
-    }
-
-    try {
-      // Get available domains first
-      const domains = await this.getDomains();
-      if (domains.length === 0) {
-        throw new Error('No email domains available from the service');
-      }
-
-      // Generate random username
-      const username = Math.random().toString(36).substring(2, 10);
-      const domain = domains[0].domain;
-      const address = `${username}@${domain}`;
-      const password = Math.random().toString(36).substring(2, 15);
-
-      // Create account with retry
-      const account = await this.retryApiCall(async () => {
-        const response = await fetch(this.getApiUrl('/accounts'), {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            address,
-            password,
-          }),
-          signal: getTimeoutSignal(15000) // 15 second timeout
-        });
-
-        if (!response.ok) {
-          throw new Error(`Failed to create email account: ${response.status} ${response.statusText}`);
-        }
-        
-        return await response.json();
-      });
-      
-      // Get authentication token with retry
-      const tokenData = await this.retryApiCall(async () => {
-        const tokenResponse = await fetch(this.getApiUrl('/token'), {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            address,
-            password,
-          }),
-          signal: getTimeoutSignal(10000) // 10 second timeout
-        });
-
-        if (!tokenResponse.ok) {
-          throw new Error(`Failed to authenticate: ${tokenResponse.status} ${tokenResponse.statusText}`);
-        }
-        
-        return await tokenResponse.json();
-      });
-      
-      this.currentAccount = {
-        id: account.id,
-        address: account.address,
-        password,
-        token: tokenData.token,
-      };
-      
-      this.authToken = tokenData.token;
-      
-      return this.currentAccount;
-    } catch (error) {
-      console.error('Error creating account:', error);
-      if (error instanceof Error) {
-        throw error;
-      }
-      throw new Error('Unable to create temporary email. The email service may be temporarily unavailable.');
-    }
-  }
-
-  // Get messages for current account
-  async getMessages(): Promise<EmailMessage[]> {
-    if (!this.authToken) throw new Error('No authenticated account');
-
-    if (this.isMockMode()) {
-      return this.mockGetMessages();
-    }
-
-    try {
-      const response = await fetch(this.getApiUrl('/messages'), {
-        headers: {
-          'Authorization': `Bearer ${this.authToken}`,
-        },
-        signal: getTimeoutSignal(10000) // 10 second timeout
-      });
-
-      if (!response.ok) {
-        throw new Error(`Failed to fetch messages: ${response.status} ${response.statusText}`);
-      }
-      
-      const data = await response.json();
-      return data['hydra:member'] || [];
-    } catch (error) {
-      console.error('Error fetching messages:', error);
-      if (error instanceof Error) {
-        throw error;
-      }
-      throw new Error('Unable to fetch emails. The email service may be temporarily unavailable.');
-    }
-  }
-
-  // Get full message content
-  async getMessage(id: string): Promise<EmailContent> {
-    if (!this.authToken) throw new Error('No authenticated account');
-
-    if (this.isMockMode()) {
-      return this.mockGetMessage(id);
-    }
-
-    try {
-      const response = await fetch(this.getApiUrl(`/messages/${id}`), {
-        headers: {
-          'Authorization': `Bearer ${this.authToken}`,
-        },
-        signal: getTimeoutSignal(10000) // 10 second timeout
-      });
-
-      if (!response.ok) {
-        throw new Error(`Failed to fetch message: ${response.status} ${response.statusText}`);
-      }
-      
-      return await response.json();
-    } catch (error) {
-      console.error('Error fetching message:', error);
-      if (error instanceof Error) {
-        throw error;
-      }
-      throw new Error('Unable to load email content. The email service may be temporarily unavailable.');
-    }
-  }
-
-  // Delete current account
-  async deleteAccount(): Promise<void> {
-    if (!this.currentAccount || !this.authToken) return;
-
-    if (this.isMockMode()) {
-      return this.mockDeleteAccount();
-    }
-
-    try {
-      await fetch(this.getApiUrl(`/accounts/${this.currentAccount.id}`), {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${this.authToken}`,
-        },
-        signal: getTimeoutSignal(8000) // 8 second timeout
-      });
-      
-      this.currentAccount = null;
-      this.authToken = null;
-    } catch (error) {
-      console.error('Error deleting account:', error);
-      // Still clear local state even if API call fails
+      await this.request<void>(`/accounts/${encodeURIComponent(this.currentAccount.id)}`, {
+        method: "DELETE",
+      }, 8000);
+    } finally {
       this.currentAccount = null;
       this.authToken = null;
     }
@@ -517,12 +167,11 @@ TechCorp Support Team`;
     return this.currentAccount;
   }
 
-  // Get connection status for debugging/UI purposes  
-  getConnectionInfo(): { mode: 'mock' | 'real', corsProxy: boolean, initialized: boolean } {
+  getConnectionInfo(): { mode: "real"; corsProxy: false; initialized: boolean } {
     return {
-      mode: this.isMockMode() ? 'mock' : 'real',
-      corsProxy: this.corsProxyNeeded || USE_CORS_PROXY,
-      initialized: USE_MOCK || this.corsProxyNeeded !== undefined
+      mode: "real",
+      corsProxy: false,
+      initialized: true,
     };
   }
 }
