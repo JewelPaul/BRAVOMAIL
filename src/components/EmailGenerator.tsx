@@ -15,18 +15,14 @@ const EmailGenerator = ({ onEmailChange }: EmailGeneratorProps) => {
   const [currentAccount, setCurrentAccount] = useState<EmailAccount | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [error, setError] = useState<string>("");
-  const [apiMode, setApiMode] = useState<'mock' | 'real'>('mock');
   const [isInitializing, setIsInitializing] = useState(true);
   const [apiHealthy, setApiHealthy] = useState(false);
-  const [retryCount, setRetryCount] = useState(0);
   const { toast } = useToast();
 
   // Initialize API and generate initial email on component mount
   useEffect(() => {
     const initializeApp = async () => {
       setIsInitializing(true);
-      setApiMode(mailApi.getApiMode());
-      
       try {
         // Initialize the mail API connection
         await mailApi.initializeConnection();
@@ -35,8 +31,7 @@ const EmailGenerator = ({ onEmailChange }: EmailGeneratorProps) => {
         const healthy = await mailApi.checkApiHealth();
         setApiHealthy(healthy);
         
-        if (healthy || mailApi.getApiMode() === 'mock') {
-          // Generate initial email if API is healthy or in mock mode
+        if (healthy) {
           await generateNewEmail();
         } else {
           setError("Email service is currently unavailable. Please try again later.");
@@ -56,7 +51,6 @@ const EmailGenerator = ({ onEmailChange }: EmailGeneratorProps) => {
   const retryConnection = async () => {
     setError("");
     setIsInitializing(true);
-    setRetryCount(prev => prev + 1);
     
     try {
       // Re-initialize the connection
@@ -66,8 +60,7 @@ const EmailGenerator = ({ onEmailChange }: EmailGeneratorProps) => {
       const healthy = await mailApi.checkApiHealth();
       setApiHealthy(healthy);
       
-      if (healthy || mailApi.getApiMode() === 'mock') {
-        // Try to generate email again
+      if (healthy) {
         await generateNewEmail();
         toast({
           title: "Connection restored!",
@@ -169,8 +162,7 @@ const EmailGenerator = ({ onEmailChange }: EmailGeneratorProps) => {
                 <p className="text-sm sm:text-base text-muted-foreground">Valid for 10 minutes</p>
                 <span className="hidden sm:inline text-muted-foreground">•</span>
                 <div className="flex items-center gap-1">
-                  {apiMode === 'real' ? (
-                    apiHealthy ? (
+                  {apiHealthy ? (
                       <>
                         <CheckCircle2 className="w-4 h-4 text-green-500" />
                         <Badge variant="outline" className="text-green-600 border-green-600 text-xs">
@@ -184,15 +176,7 @@ const EmailGenerator = ({ onEmailChange }: EmailGeneratorProps) => {
                           Service Unavailable
                         </Badge>
                       </>
-                    )
-                  ) : (
-                    <>
-                      <AlertCircle className="w-4 h-4 text-amber-500" />
-                      <Badge variant="outline" className="text-amber-600 border-amber-600 text-xs">
-                        Demo Mode
-                      </Badge>
-                    </>
-                  )}
+                    )}
                 </div>
               </div>
             </div>
@@ -204,7 +188,7 @@ const EmailGenerator = ({ onEmailChange }: EmailGeneratorProps) => {
                   <AlertCircle className="w-4 h-4 text-destructive flex-shrink-0" />
                   <p className="text-sm text-destructive">{error}</p>
                 </div>
-                {!apiHealthy && apiMode === 'real' && (
+                {!apiHealthy && (
                   <Button
                     onClick={retryConnection}
                     variant="outline"
