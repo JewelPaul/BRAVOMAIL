@@ -90,8 +90,6 @@ const EmailGenerator = ({ onEmailChange }: EmailGeneratorProps) => {
   };
 
   const generateNewEmail = async () => {
-    if (isInitializing) return; // Don't allow generation during initialization
-    
     setIsGenerating(true);
     setError("");
     

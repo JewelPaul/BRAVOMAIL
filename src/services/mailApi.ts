@@ -82,6 +82,11 @@ class MailApi {
   private currentAccount: EmailAccount | null = null;
   private authToken: string | null = null;
   private corsProxyNeeded: boolean = false;
+  private mockFallback = false;
+
+  private isMockMode(): boolean {
+    return USE_MOCK || this.mockFallback;
+  }
 
   private getApiUrl(endpoint: string): string {
     const needsProxy = USE_CORS_PROXY || this.corsProxyNeeded;
@@ -150,21 +155,22 @@ class MailApi {
         console.log('✓ CORS proxy working');
       } else {
         console.log('⚠ CORS proxy available but API returned error');
+        this.mockFallback = true;
       }
     } catch {
-      console.log('⚠ CORS proxy also failed, API may be completely unavailable');
-      // Keep corsProxyNeeded = true as fallback, but expect failures
+      console.log('⚠ CORS proxy also failed, using demo fallback');
+      this.mockFallback = true;
     }
   }
 
   // Get current API mode for UI display
   getApiMode(): 'mock' | 'real' {
-    return USE_MOCK ? 'mock' : 'real';
+    return this.isMockMode() ? 'mock' : 'real';
   }
 
   // Check if real API is available
   async checkApiHealth(): Promise<boolean> {
-    if (USE_MOCK) return true;
+    if (this.isMockMode()) return true;
     
     // Initialize connection method if not done yet
     if (!USE_CORS_PROXY && !this.corsProxyNeeded) {
@@ -304,7 +310,7 @@ TechCorp Support Team`;
 
   // Get available domains
   async getDomains(): Promise<Domain[]> {
-    if (USE_MOCK) {
+    if (this.isMockMode()) {
       return this.mockGetDomains();
     }
 
@@ -341,7 +347,7 @@ TechCorp Support Team`;
 
   // Create a new email account
   async createAccount(): Promise<EmailAccount> {
-    if (USE_MOCK) {
+    if (this.isMockMode()) {
       return this.mockCreateAccount();
     }
 
@@ -423,7 +429,7 @@ TechCorp Support Team`;
   async getMessages(): Promise<EmailMessage[]> {
     if (!this.authToken) throw new Error('No authenticated account');
 
-    if (USE_MOCK) {
+    if (this.isMockMode()) {
       return this.mockGetMessages();
     }
 
@@ -454,7 +460,7 @@ TechCorp Support Team`;
   async getMessage(id: string): Promise<EmailContent> {
     if (!this.authToken) throw new Error('No authenticated account');
 
-    if (USE_MOCK) {
+    if (this.isMockMode()) {
       return this.mockGetMessage(id);
     }
 
@@ -484,7 +490,7 @@ TechCorp Support Team`;
   async deleteAccount(): Promise<void> {
     if (!this.currentAccount || !this.authToken) return;
 
-    if (USE_MOCK) {
+    if (this.isMockMode()) {
       return this.mockDeleteAccount();
     }
 
@@ -514,7 +520,7 @@ TechCorp Support Team`;
   // Get connection status for debugging/UI purposes  
   getConnectionInfo(): { mode: 'mock' | 'real', corsProxy: boolean, initialized: boolean } {
     return {
-      mode: USE_MOCK ? 'mock' : 'real',
+      mode: this.isMockMode() ? 'mock' : 'real',
       corsProxy: this.corsProxyNeeded || USE_CORS_PROXY,
       initialized: USE_MOCK || this.corsProxyNeeded !== undefined
     };
