@@ -1,4 +1,5 @@
 const API_BASE = "https://api.mail.tm";
+const CORS_PROXY = "https://corsproxy.io/?url=";
 
 const getTimeoutSignal = (milliseconds: number): AbortSignal => {
   const controller = new AbortController();
@@ -21,10 +22,7 @@ export interface EmailAccount {
 
 export interface EmailMessage {
   id: string;
-  from: {
-    name: string;
-    address: string;
-  };
+  from: { name: string; address: string };
   subject: string;
   intro: string;
   seen: boolean;
@@ -40,22 +38,48 @@ export interface EmailContent extends EmailMessage {
 class MailApi {
   private currentAccount: EmailAccount | null = null;
   private authToken: string | null = null;
+  private useProxy = false;
 
   private async request<T>(
     endpoint: string,
     options: RequestInit = {},
     timeout = 10000,
   ): Promise<T> {
-    const response = await fetch(`${API_BASE}${endpoint}`, {
+    const apiUrl = `${API_BASE}${endpoint}`;
+    const headers = {
+      Accept: "application/json",
+      ...(options.body ? { "Content-Type": "application/json" } : {}),
+      ...(this.authToken ? { Authorization: ["Bearer", this.authToken].join(" ") } : {}),
+      ...options.headers,
+    };
+
+    const fetchOptions: RequestInit = {
       ...options,
-      headers: {
-        Accept: "application/json",
-        ...(options.body ? { "Content-Type": "application/json" } : {}),
-        ...(this.authToken ? { Authorization: `Bearer ${this.authToken}` } : {}),
-        ...options.headers,
-      },
+      headers,
       signal: getTimeoutSignal(timeout),
-    });
+    };
+
+    let response: Response;
+    try {
+      response = await fetch(
+        this.useProxy ? `${CORS_PROXY}${encodeURIComponent(apiUrl)}` : apiUrl,
+        fetchOptions,
+      );
+    } catch (error) {
+      if (this.useProxy || !(error instanceof TypeError)) {
+        throw new Error("Unable to reach the email service. Check your connection and try again.");
+      }
+
+      this.useProxy = true;
+      try {
+        response = await fetch(`${CORS_PROXY}${encodeURIComponent(apiUrl)}`, {
+          ...fetchOptions,
+          signal: getTimeoutSignal(timeout),
+        });
+      } catch {
+        throw new Error("Unable to reach the email service. Check your connection and try again.");
+      }
+    }
 
     if (!response.ok) {
       let detail = `${response.status} ${response.statusText}`;
@@ -71,7 +95,6 @@ class MailApi {
     if (response.status === 204) {
       return undefined as T;
     }
-
     return response.json() as Promise<T>;
   }
 
@@ -95,11 +118,11 @@ class MailApi {
 
   async getDomains(): Promise<Domain[]> {
     const data = await this.request<{ "hydra:member"?: Domain[] }>("/domains");
-    const domains = data["hydra:member"] || [];
+    const domains = (data["hydra:member"] || []).filter((domain) => domain.isActive);
     if (domains.length === 0) {
-      throw new Error("The email service returned no available domains.");
+      throw new Error("The email service returned no active domains.");
     }
-    return domains.filter((domain) => domain.isActive);
+    return domains;
   }
 
   async createAccount(): Promise<EmailAccount> {
@@ -112,12 +135,10 @@ class MailApi {
     const username = `user${crypto.randomUUID().replaceAll("-", "").slice(0, 12)}`;
     const password = `${crypto.randomUUID()}${crypto.randomUUID()}`;
     const address = `${username}@${domain}`;
-
     const account = await this.request<{ id: string; address: string }>("/accounts", {
       method: "POST",
       body: JSON.stringify({ address, password }),
     }, 15000);
-
     const tokenData = await this.request<{ token: string }>("/token", {
       method: "POST",
       body: JSON.stringify({ address, password }),
@@ -149,10 +170,7 @@ class MailApi {
   }
 
   async deleteAccount(): Promise<void> {
-    if (!this.currentAccount || !this.authToken) {
-      return;
-    }
-
+    if (!this.currentAccount || !this.authToken) return;
     try {
       await this.request<void>(`/accounts/${encodeURIComponent(this.currentAccount.id)}`, {
         method: "DELETE",
@@ -167,12 +185,8 @@ class MailApi {
     return this.currentAccount;
   }
 
-  getConnectionInfo(): { mode: "real"; corsProxy: false; initialized: boolean } {
-    return {
-      mode: "real",
-      corsProxy: false,
-      initialized: true,
-    };
+  getConnectionInfo(): { mode: "real"; corsProxy: boolean; initialized: boolean } {
+    return { mode: "real", corsProxy: this.useProxy, initialized: true };
   }
 }
 
