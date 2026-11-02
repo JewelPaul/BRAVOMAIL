@@ -1,12 +1,20 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeAll } from 'vitest';
 import fs from 'node:fs';
 import path from 'node:path';
+import { execSync } from 'node:child_process';
 
 describe('Production Build & Asset Paths Verification', () => {
   const rootDir = path.resolve(__dirname, '../../');
   const distDir = path.join(rootDir, 'dist');
   const distIndex = path.join(distDir, 'index.html');
   const dist404 = path.join(distDir, '404.html');
+
+  beforeAll(() => {
+    // If not built yet, run build to ensure artifacts exist
+    if (!fs.existsSync(distIndex)) {
+      execSync('npm run build', { cwd: rootDir, stdio: 'ignore' });
+    }
+  });
 
   it('generates dist/index.html with correct /BRAVOMAIL/ base path for GitHub Pages', () => {
     expect(fs.existsSync(distIndex)).toBe(true);
@@ -25,6 +33,18 @@ describe('Production Build & Asset Paths Verification', () => {
     const contentIndex = fs.readFileSync(distIndex, 'utf8');
 
     expect(content404).toBe(contentIndex);
+  });
+
+  it('verifies that root index.html and 404.html contain compiled production assets for legacy branch hosting', () => {
+    const rootIndex = path.join(rootDir, 'index.html');
+    const root404 = path.join(rootDir, '404.html');
+
+    expect(fs.existsSync(rootIndex)).toBe(true);
+    expect(fs.existsSync(root404)).toBe(true);
+
+    const rootContent = fs.readFileSync(rootIndex, 'utf8');
+    expect(rootContent).toMatch(/src="\/BRAVOMAIL\/assets\//);
+    expect(rootContent).not.toContain('/src/main.tsx');
   });
 
   it('verifies that no fake or hardcoded mock emails exist in client production service', () => {

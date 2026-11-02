@@ -6,7 +6,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build && cp dist/index.html dist/404.html",
+    "build": "vite build && cp dist/app.html dist/index.html && cp dist/app.html dist/404.html && cp dist/index.html index.html && cp dist/404.html 404.html && rm -rf assets && cp -r dist/assets assets",
     "build:dev": "vite build --mode development",
     "test": "vitest run && node --test server/test/server.test.js",
     "test:client": "vitest run",

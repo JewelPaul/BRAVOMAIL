@@ -34,13 +34,13 @@ jobs:
       - name: Lint
         run: npm run lint
 
-      - name: Test
-        run: npm test
-
       - name: Build
         run: npm run build
         env:
           VITE_API_BASE_URL: ${{ vars.VITE_API_BASE_URL }}
+
+      - name: Test
+        run: npm test
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
