@@ -2,7 +2,6 @@
 
 BravoMail is a fast, privacy-focused temporary email web application built with React, TypeScript, Tailwind CSS, Vite, and an isolated backend architecture interfacing with genuine disposable email infrastructure.
 
-Live GitHub Pages site: **[https://jewelpaul.github.io/BRAVOMAIL/](https://jewelpaul.github.io/BRAVOMAIL/)**
 
 ---
 
